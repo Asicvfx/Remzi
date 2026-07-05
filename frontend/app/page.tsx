@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
   askInChat,
@@ -43,6 +43,9 @@ export default function Home() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [typingMessageId, setTypingMessageId] = useState<number | null>(null);
+  const [typingAnswer, setTypingAnswer] = useState("");
+  const typingIntervalRef = useRef<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const processingDocuments = useMemo(
     () => documents.filter((document) => document.status === "uploaded" || document.status === "processing"),
@@ -90,6 +93,10 @@ export default function Home() {
     return () => window.clearInterval(intervalId);
   }, [token, hasProcessingDocuments]);
 
+  useEffect(() => {
+    return () => stopTypingEffect();
+  }, []);
+
   async function refreshWorkspace(activeToken = token, options: { silent?: boolean } = {}) {
     if (!options.silent) {
       setError("");
@@ -129,6 +136,34 @@ export default function Home() {
     }
   }
 
+  function stopTypingEffect() {
+    if (typingIntervalRef.current !== null) {
+      window.clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
+    }
+  }
+
+  function playTypingEffect(message: ChatMessage) {
+    stopTypingEffect();
+    setTypingMessageId(message.id);
+    setTypingAnswer("");
+
+    const fullAnswer = message.answer;
+    const stepSize = Math.max(2, Math.ceil(fullAnswer.length / 140));
+    let cursor = 0;
+
+    typingIntervalRef.current = window.setInterval(() => {
+      cursor = Math.min(cursor + stepSize, fullAnswer.length);
+      setTypingAnswer(fullAnswer.slice(0, cursor));
+
+      if (cursor >= fullAnswer.length) {
+        stopTypingEffect();
+        setTypingMessageId(null);
+        setTypingAnswer("");
+      }
+    }, 18);
+  }
+
   function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -154,6 +189,9 @@ export default function Home() {
   function handleLogout() {
     window.localStorage.removeItem(TOKEN_STORAGE_KEY);
     window.localStorage.removeItem(USER_STORAGE_KEY);
+    stopTypingEffect();
+    setTypingMessageId(null);
+    setTypingAnswer("");
     setToken("");
     setUser(null);
     setDocuments([]);
@@ -232,6 +270,7 @@ export default function Home() {
 
           const data = await askInChat(token, chatId, question, limit, selectedDocumentId);
           setMessages((current) => [...current, data.message]);
+          playTypingEffect(data.message);
           setChats((current) => [data.session, ...current.filter((chat) => chat.id !== data.session.id)]);
           setSelectedChatId(data.session.id);
           setNotice(
@@ -254,16 +293,16 @@ export default function Home() {
     <main className="shell">
       <section className="hero panel">
         <div>
-          <p className="eyebrow">Remzi Stage 11</p>
-          <h1>Документы сами доходят до Ready, без ручного Refresh.</h1>
+          <p className="eyebrow">Remzi Stage 12</p>
+          <h1>Ответ появляется постепенно, как живой чат.</h1>
           <p className="heroCopy">
-            Загрузи файл и не дергай Refresh вручную. Remzi будет проверять processing-статусы,
-            сохранит историю чата, найденные citations и режим ответа.
+            Remzi сохраняет полный ответ в историю, а новый ответ показывает с typing-эффектом.
+            Так чат ощущается живее, пока backend остается надежным и простым.
           </p>
         </div>
         <div className="heroBadge">
-          <span>{lastMessage?.answer_mode === "openai" ? "OpenAI" : "Memory"}</span>
-          <strong>{hasProcessingDocuments ? `${processingDocuments.length} processing` : lastMessage?.model || `${messages.length} saved`}</strong>
+          <span>{typingMessageId ? "Typing" : lastMessage?.answer_mode === "openai" ? "OpenAI" : "Memory"}</span>
+          <strong>{typingMessageId ? "live answer" : hasProcessingDocuments ? `${processingDocuments.length} processing` : lastMessage?.model || `${messages.length} saved`}</strong>
         </div>
       </section>
 
@@ -432,14 +471,20 @@ export default function Home() {
 
           {messages.length > 0 ? (
             <div className="historyList">
-              {messages.map((message) => (
-                <article className="answerCard" key={message.id}>
+              {messages.map((message) => {
+                const isTyping = typingMessageId === message.id;
+
+                return (
+                <article className={`answerCard ${isTyping ? "typingCard" : ""}`} key={message.id}>
                   <div className="answerMeta">
                     <span>{message.answer_mode === "openai" ? "OpenAI answer" : "Local fallback"}</span>
                     <span>{message.model || "no model"}</span>
                   </div>
                   <h3>{message.question}</h3>
-                  <p className="answerText">{message.answer}</p>
+                  <p className={`answerText ${isTyping ? "typing" : ""}`}>
+                    {isTyping ? typingAnswer : message.answer}
+                    {isTyping && <span aria-hidden="true" className="typingCursor" />}
+                  </p>
                   <div className="citations">
                     <h3>Цитаты</h3>
                     {message.citations.map((citation) => (
@@ -453,13 +498,14 @@ export default function Home() {
                     ))}
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="emptyState">
-              <span>10</span>
+              <span>12</span>
               <h3>История чата пока пустая.</h3>
-              <p>Войди, выбери документ и нажми “Спросить и сохранить”.</p>
+              <p>Войди, выбери документ и нажми “Спросить и сохранить”. Новый ответ появится постепенно.</p>
             </div>
           )}
         </section>

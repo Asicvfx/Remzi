@@ -362,6 +362,25 @@ h2 {
   white-space: pre-wrap;
 }
 
+.answerText.typing {
+  min-height: 1.8em;
+}
+
+.typingCard {
+  box-shadow: 0 18px 45px rgba(42, 35, 28, 0.1);
+}
+
+.typingCursor {
+  animation: blink 900ms steps(2, start) infinite;
+  background: var(--amber);
+  border-radius: 999px;
+  display: inline-block;
+  height: 1.05em;
+  margin-left: 0.18em;
+  vertical-align: -0.15em;
+  width: 0.55em;
+}
+
 .citations {
   display: grid;
   gap: 12px;
@@ -405,6 +424,12 @@ h2 {
 .emptyState p {
   color: var(--muted);
   margin-bottom: 0;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
 }
 
 @keyframes rise {

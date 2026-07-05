@@ -1,6 +1,6 @@
 ﻿# Remzi
 
-Remzi is a portfolio-level RAG application. Stages 0-11 include the monorepo foundation, Docker environment, Django REST backend, JWT authentication, document upload APIs, Celery-based background processing, text extraction, document chunking, local embeddings, authenticated chunk search, OpenAI-powered answers with citations, a beginner-friendly frontend chat workspace, persisted chat history, and automatic document processing polling.
+Remzi is a portfolio-level RAG application. Stages 0-12 include the monorepo foundation, Docker environment, Django REST backend, JWT authentication, document upload APIs, Celery-based background processing, text extraction, document chunking, local embeddings, authenticated chunk search, OpenAI-powered answers with citations, a beginner-friendly frontend chat workspace, persisted chat history, automatic document processing polling, and a frontend typing effect for new answers.
 
 ## Current structure
 
@@ -13,7 +13,7 @@ Remzi/
   README.md
 ```
 
-## Stage 0-11 features
+## Stage 0-12 features
 
 - Monorepo layout for backend and frontend.
 - Docker Compose with PostgreSQL, Redis, Django backend, and Celery worker.
@@ -31,6 +31,7 @@ Remzi/
 - Optional OpenAI answer generation for `/api/ask/` with local fallback.
 - Persisted chat sessions and saved question/answer history.
 - Frontend auto-refreshes document statuses while files are uploaded or processing.
+- Frontend shows newly generated answers with a typing effect while keeping saved history instant.
 - Frontend workspace for login, document upload, document selection, chat history, questions, answers, and citations.
 - Swagger UI at `/api/docs/`.
 - Basic auth, document pipeline, chunking, search, and answer tests.
@@ -115,7 +116,7 @@ npm run dev
 3. Upload a `.pdf`, `.docx`, or `.txt` file.
 4. Wait while Remzi auto-refreshes the document status until it becomes `Ready`.
 5. Select a document or choose all documents.
-6. Ask a question and read the answer with citations.
+6. Ask a question and watch the new answer appear gradually with citations.
 7. Reopen the chat later; saved questions and answers remain in history.
 
 If the answer response says `OpenAI answer`, the model generated the answer from retrieved citations. If it says `Local fallback`, Remzi answered with the built-in extractive mode.
@@ -280,16 +281,16 @@ cd D:\RemziFrontendWorkspace
 npm run build
 ```
 
-## Changed files in Stage 11
+## Changed files in Stage 12
 
-- Added frontend polling for `uploaded` and `processing` documents.
-- Added visible auto-refresh status in the Documents panel.
-- Updated upload notice so users know Refresh is no longer required.
-- Updated README instructions for Stage 11.
+- Added a frontend typing effect for newly saved chat answers.
+- Added a blinking answer cursor and subtle active-answer styling.
+- Updated the homepage hero and empty state for Stage 12.
+- Updated README instructions for Stage 12.
 
 ## Next stage
 
-Stage 12 can add streaming answers and a cleaner production UI.
+Stage 13 can add true backend/OpenAI streaming or start cleaning the production UI.
 
 
 
