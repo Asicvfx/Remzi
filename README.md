@@ -1,6 +1,6 @@
 ﻿# Remzi
 
-Remzi is a portfolio-level RAG application. Stages 0-12 include the monorepo foundation, Docker environment, Django REST backend, JWT authentication, document upload APIs, Celery-based background processing, text extraction, document chunking, local embeddings, authenticated chunk search, OpenAI-powered answers with citations, a beginner-friendly frontend chat workspace, persisted chat history, automatic document processing polling, and a frontend typing effect for new answers.
+Remzi is a portfolio-level RAG application. Stages 0-13 include the monorepo foundation, Docker environment, Django REST backend, JWT authentication, document upload APIs, Celery-based background processing, text extraction, document chunking, local embeddings, authenticated chunk search, OpenAI-powered answers with citations, a beginner-friendly frontend chat workspace, persisted chat history, automatic document processing polling, a frontend typing effect for new answers, and a cleaner product-style workspace UI.
 
 ## Current structure
 
@@ -13,7 +13,7 @@ Remzi/
   README.md
 ```
 
-## Stage 0-12 features
+## Stage 0-13 features
 
 - Monorepo layout for backend and frontend.
 - Docker Compose with PostgreSQL, Redis, Django backend, and Celery worker.
@@ -32,6 +32,7 @@ Remzi/
 - Persisted chat sessions and saved question/answer history.
 - Frontend auto-refreshes document statuses while files are uploaded or processing.
 - Frontend shows newly generated answers with a typing effect while keeping saved history instant.
+- Frontend has a cleaner Stage 13 product workspace layout for demo use.
 - Frontend workspace for login, document upload, document selection, chat history, questions, answers, and citations.
 - Swagger UI at `/api/docs/`.
 - Basic auth, document pipeline, chunking, search, and answer tests.
@@ -281,16 +282,16 @@ cd D:\RemziFrontendWorkspace
 npm run build
 ```
 
-## Changed files in Stage 12
+## Changed files in Stage 13
 
-- Added a frontend typing effect for newly saved chat answers.
-- Added a blinking answer cursor and subtle active-answer styling.
-- Updated the homepage hero and empty state for Stage 12.
-- Updated README instructions for Stage 12.
+- Cleaned up the frontend visual system and layout styling.
+- Updated the homepage hero copy for product-style positioning.
+- Improved responsive behavior for the workspace panels.
+- Updated README instructions for Stage 13.
 
 ## Next stage
 
-Stage 13 can add true backend/OpenAI streaming or start cleaning the production UI.
+Stage 14 can add clearer user-facing error states, expired-token handling, and production polish around failed document processing.
 
 
 
