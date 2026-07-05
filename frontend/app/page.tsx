@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import {
+  ApiError,
   askInChat,
   createChat,
   getChatMessages,
@@ -27,6 +28,30 @@ function statusLabel(status: RemziDocument["status"]) {
   return labels[status];
 }
 
+function getFriendlyErrorMessage(err: unknown, fallback: string) {
+  if (err instanceof ApiError) {
+    if (err.status === 0) {
+      return err.message;
+    }
+    if (err.status === 401) {
+      return "Сессия истекла или токен больше не подходит. Войдите в Remzi заново.";
+    }
+    if (err.status === 400) {
+      return `Проверьте данные формы: ${err.message}`;
+    }
+    if (err.status === 404) {
+      return "Объект не найден. Обновите workspace и попробуйте снова.";
+    }
+    if (err.status >= 500) {
+      return "Backend вернул ошибку сервера. Проверьте Docker logs backend/worker и попробуйте снова.";
+    }
+
+    return err.message || fallback;
+  }
+
+  return err instanceof Error ? err.message : fallback;
+}
+
 export default function Home() {
   const [token, setToken] = useState("");
   const [user, setUser] = useState<RemziUser | null>(null);
@@ -49,6 +74,10 @@ export default function Home() {
   const [isPending, startTransition] = useTransition();
   const processingDocuments = useMemo(
     () => documents.filter((document) => document.status === "uploaded" || document.status === "processing"),
+    [documents],
+  );
+  const readyDocumentsCount = useMemo(
+    () => documents.filter((document) => document.status === "ready").length,
     [documents],
   );
   const hasProcessingDocuments = processingDocuments.length > 0;
@@ -97,6 +126,33 @@ export default function Home() {
     return () => stopTypingEffect();
   }, []);
 
+  function resetSessionState() {
+    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(USER_STORAGE_KEY);
+    stopTypingEffect();
+    setTypingMessageId(null);
+    setTypingAnswer("");
+    setToken("");
+    setUser(null);
+    setDocuments([]);
+    setChats([]);
+    setMessages([]);
+    setSelectedChatId(undefined);
+    setSelectedDocumentId(undefined);
+  }
+
+  function handleRequestError(err: unknown, fallback: string) {
+    const message = getFriendlyErrorMessage(err, fallback);
+
+    if (err instanceof ApiError && err.status === 401) {
+      resetSessionState();
+      setError(message);
+      return;
+    }
+
+    setError(message);
+  }
+
   async function refreshWorkspace(activeToken = token, options: { silent?: boolean } = {}) {
     if (!options.silent) {
       setError("");
@@ -117,8 +173,12 @@ export default function Home() {
         setSelectedChatId(chatData[0].id);
       }
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        handleRequestError(err, "Не удалось загрузить workspace");
+        return;
+      }
       if (!options.silent) {
-        setError(err instanceof Error ? err.message : "Не удалось загрузить workspace");
+        handleRequestError(err, "Не удалось загрузить workspace");
       }
     }
   }
@@ -132,7 +192,7 @@ export default function Home() {
       const data = await getChatMessages(activeToken, chatId);
       setMessages(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось загрузить историю чата");
+      handleRequestError(err, "Не удалось загрузить историю чата");
     }
   }
 
@@ -180,24 +240,14 @@ export default function Home() {
           setNotice("Вошли в Remzi. Загружаю документы и историю.");
           await refreshWorkspace(data.access);
         } catch (err) {
-          setError(err instanceof Error ? err.message : "Не удалось войти");
+          handleRequestError(err, "Не удалось войти");
         }
       })();
     });
   }
 
   function handleLogout() {
-    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-    window.localStorage.removeItem(USER_STORAGE_KEY);
-    stopTypingEffect();
-    setTypingMessageId(null);
-    setTypingAnswer("");
-    setToken("");
-    setUser(null);
-    setDocuments([]);
-    setChats([]);
-    setMessages([]);
-    setSelectedChatId(undefined);
+    resetSessionState();
     setNotice("Вы вышли из Remzi.");
   }
 
@@ -215,7 +265,7 @@ export default function Home() {
           setMessages([]);
           setNotice("Создан новый чат. Следующий вопрос сохранится в историю.");
         } catch (err) {
-          setError(err instanceof Error ? err.message : "Не удалось создать чат");
+          handleRequestError(err, "Не удалось создать чат");
         }
       })();
     });
@@ -241,7 +291,7 @@ export default function Home() {
           setNotice("Документ загружен. Я сам обновляю статус каждые 3 секунды, пока он не станет Ready.");
           await refreshWorkspace();
         } catch (err) {
-          setError(err instanceof Error ? err.message : "Не удалось загрузить документ");
+          handleRequestError(err, "Не удалось загрузить документ");
         }
       })();
     });
@@ -251,6 +301,19 @@ export default function Home() {
     event.preventDefault();
     if (!token) {
       setError("Сначала войдите в аккаунт.");
+      return;
+    }
+
+    if (selectedDocument?.status === "failed") {
+      setError(`Документ "${selectedDocument.title}" не обработался: ${selectedDocument.error_message || "ошибка извлечения текста"}. Загрузите другой файл или проверьте исходный документ.`);
+      return;
+    }
+    if (selectedDocument?.status === "uploaded" || selectedDocument?.status === "processing") {
+      setError(`Документ "${selectedDocument.title}" еще обрабатывается. Дождитесь статуса Ready, затем спросите снова.`);
+      return;
+    }
+    if (!selectedDocument && documents.length > 0 && readyDocumentsCount === 0) {
+      setError("Пока нет документов со статусом Ready. Дождитесь обработки или загрузите другой файл.");
       return;
     }
 
@@ -279,7 +342,7 @@ export default function Home() {
               : "Ответ сохранен в историю локальным fallback-режимом.",
           );
         } catch (err) {
-          setError(err instanceof Error ? err.message : "Не удалось получить ответ");
+          handleRequestError(err, "Не удалось получить ответ");
         }
       })();
     });
@@ -293,11 +356,11 @@ export default function Home() {
     <main className="shell">
       <section className="hero panel">
         <div>
-          <p className="eyebrow">Remzi Stage 13</p>
-          <h1>Чат с документами, который уже выглядит как продукт.</h1>
+          <p className="eyebrow">Remzi Stage 14</p>
+          <h1>Ошибки теперь объясняют, что делать дальше.</h1>
           <p className="heroCopy">
-            Загружай файлы, дождись Ready, задавай вопросы и получай ответы с цитатами.
-            Remzi теперь больше похож на рабочий продукт, а не на тестовую Swagger-песочницу.
+            Если backend упал, токен истек или документ не дошел до Ready, Remzi покажет понятную подсказку.
+            Меньше загадочных ошибок, больше спокойного контроля над workflow.
           </p>
         </div>
         <div className="heroBadge">
@@ -412,6 +475,9 @@ export default function Home() {
                     <strong>{document.title}</strong>
                     <small>{document.filename}</small>
                     <small>{document.extracted_text_length || 0} chars</small>
+                    {document.status === "failed" && document.error_message && (
+                      <small className="documentError">{document.error_message}</small>
+                    )}
                   </button>
                 ))}
               </div>
@@ -427,6 +493,17 @@ export default function Home() {
             </div>
             {selectedDocument && <span className={`status ${selectedDocument.status}`}>{statusLabel(selectedDocument.status)}</span>}
           </div>
+
+          {selectedDocument?.status === "failed" && (
+            <div className="message error">
+              Этот документ не готов для вопросов: {selectedDocument.error_message || "ошибка обработки файла"}
+            </div>
+          )}
+          {(selectedDocument?.status === "uploaded" || selectedDocument?.status === "processing") && (
+            <div className="message">
+              Документ еще обрабатывается. Remzi сам обновит статус, когда он станет Ready.
+            </div>
+          )}
 
           <form className="askForm" onSubmit={handleAsk}>
             <textarea
@@ -459,7 +536,7 @@ export default function Home() {
                   ))}
                 </select>
               </label>
-              <button disabled={isPending || !token} type="submit">
+              <button disabled={isPending || !token || (selectedDocument ? selectedDocument.status !== "ready" : documents.length > 0 && readyDocumentsCount === 0)} type="submit">
                 {isPending ? "Думаю..." : "Спросить и сохранить"}
               </button>
             </div>
@@ -503,9 +580,9 @@ export default function Home() {
             </div>
           ) : (
             <div className="emptyState">
-              <span>13</span>
-              <h3>Рабочее место готово к первому вопросу.</h3>
-              <p>Войди, загрузи документ, дождись Ready и нажми “Спросить”. Ответ появится здесь вместе с источниками.</p>
+              <span>14</span>
+              <h3>Рабочее место готово и подскажет, если что-то пойдет не так.</h3>
+              <p>Войди, загрузи документ и дождись Ready. Если токен истечет или файл не обработается, Remzi объяснит следующий шаг.</p>
             </div>
           )}
         </section>

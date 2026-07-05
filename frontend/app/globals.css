@@ -150,6 +150,7 @@ h3 { font-size: 1rem; margin-bottom: 0.8rem; }
 }
 .documentCard.active { background: var(--charcoal); color: var(--cream); }
 .documentCard small { color: inherit; opacity: 0.68; }
+.documentError { color: var(--red) !important; font-weight: 900; opacity: 1 !important; }
 
 .status, .pollingPill { border-radius: 999px; display: inline-flex; justify-self: start; padding: 0.38rem 0.7rem; }
 .status.ready { background: var(--green-soft); color: var(--green); }

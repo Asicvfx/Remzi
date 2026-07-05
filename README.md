@@ -1,6 +1,6 @@
 ﻿# Remzi
 
-Remzi is a portfolio-level RAG application. Stages 0-13 include the monorepo foundation, Docker environment, Django REST backend, JWT authentication, document upload APIs, Celery-based background processing, text extraction, document chunking, local embeddings, authenticated chunk search, OpenAI-powered answers with citations, a beginner-friendly frontend chat workspace, persisted chat history, automatic document processing polling, a frontend typing effect for new answers, and a cleaner product-style workspace UI.
+Remzi is a portfolio-level RAG application. Stages 0-14 include the monorepo foundation, Docker environment, Django REST backend, JWT authentication, document upload APIs, Celery-based background processing, text extraction, document chunking, local embeddings, authenticated chunk search, OpenAI-powered answers with citations, a beginner-friendly frontend chat workspace, persisted chat history, automatic document processing polling, a frontend typing effect for new answers, a cleaner product-style workspace UI, and clearer frontend error handling.
 
 ## Current structure
 
@@ -13,7 +13,7 @@ Remzi/
   README.md
 ```
 
-## Stage 0-13 features
+## Stage 0-14 features
 
 - Monorepo layout for backend and frontend.
 - Docker Compose with PostgreSQL, Redis, Django backend, and Celery worker.
@@ -33,6 +33,7 @@ Remzi/
 - Frontend auto-refreshes document statuses while files are uploaded or processing.
 - Frontend shows newly generated answers with a typing effect while keeping saved history instant.
 - Frontend has a cleaner Stage 13 product workspace layout for demo use.
+- Frontend explains API/network/auth errors and blocks asks against failed or processing documents.
 - Frontend workspace for login, document upload, document selection, chat history, questions, answers, and citations.
 - Swagger UI at `/api/docs/`.
 - Basic auth, document pipeline, chunking, search, and answer tests.
@@ -282,16 +283,16 @@ cd D:\RemziFrontendWorkspace
 npm run build
 ```
 
-## Changed files in Stage 13
+## Changed files in Stage 14
 
-- Cleaned up the frontend visual system and layout styling.
-- Updated the homepage hero copy for product-style positioning.
-- Improved responsive behavior for the workspace panels.
-- Updated README instructions for Stage 13.
+- Added typed frontend API errors with HTTP status metadata.
+- Added friendly network, expired-token, validation, not-found, and server-error messages.
+- Added safeguards before asking against failed or still-processing documents.
+- Updated README instructions for Stage 14.
 
 ## Next stage
 
-Stage 14 can add clearer user-facing error states, expired-token handling, and production polish around failed document processing.
+Stage 15 can add true backend/OpenAI streaming or start preparing deployment configuration.
 
 
 

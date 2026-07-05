@@ -10,12 +10,46 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000/api";
 
+export class ApiError extends Error {
+  status: number;
+  payload: unknown;
+
+  constructor(message: string, status: number, payload?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
 type RequestOptions = {
   token?: string;
   method?: string;
   body?: BodyInit | object;
   headers?: HeadersInit;
 };
+
+function extractErrorMessage(payload: unknown, status: number) {
+  if (typeof payload === "object" && payload !== null) {
+    if ("detail" in payload) {
+      return String(payload.detail);
+    }
+
+    const fieldErrors = Object.entries(payload)
+      .map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(", ") : String(value)}`)
+      .join("; ");
+
+    if (fieldErrors) {
+      return fieldErrors;
+    }
+  }
+
+  if (typeof payload === "string" && payload.trim()) {
+    return payload;
+  }
+
+  return `Request failed with ${status}`;
+}
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
@@ -30,11 +64,20 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: options.method ?? "GET",
-    headers,
-    body,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: options.method ?? "GET",
+      headers,
+      body,
+    });
+  } catch (err) {
+    throw new ApiError(
+      "Не удалось подключиться к backend. Проверь, что Docker и сервер на localhost:8000 запущены.",
+      0,
+      err,
+    );
+  }
 
   const contentType = response.headers.get("content-type") ?? "";
   const payload = contentType.includes("application/json")
@@ -42,10 +85,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     : await response.text();
 
   if (!response.ok) {
-    const detail = typeof payload === "object" && payload !== null && "detail" in payload
-      ? String(payload.detail)
-      : JSON.stringify(payload);
-    throw new Error(detail || `Request failed with ${response.status}`);
+    throw new ApiError(extractErrorMessage(payload, response.status), response.status, payload);
   }
 
   return payload as T;
