@@ -1,0 +1,900 @@
+openapi: 3.0.3
+info:
+  title: Remzi API
+  version: 0.1.0
+  description: Stage 0-10 foundation for the Remzi RAG backend.
+paths:
+  /api/ask/:
+    post:
+      operationId: api_ask_create
+      description: Retrieves relevant chunks and returns an answer with citations.
+        Uses OpenAI when configured, otherwise falls back to local extractive answers.
+      summary: Ask a question about your documents
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AskRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AskRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AskRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AskResponse'
+          description: ''
+  /api/auth/login/:
+    post:
+      operationId: api_auth_login_create
+      description: Returns access and refresh tokens for a valid username/password
+        pair.
+      summary: Login and obtain JWT tokens
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemziTokenObtainPairRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RemziTokenObtainPairRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RemziTokenObtainPairRequest'
+        required: true
+      responses:
+        '200':
+          description: No response body
+  /api/auth/me/:
+    get:
+      operationId: api_auth_me_retrieve
+      description: Returns the authenticated user's profile data.
+      summary: Get current user profile
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/register/:
+    post:
+      operationId: api_auth_register_create
+      description: Creates a Remzi account and returns the created user payload.
+      summary: Register a new user
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Register'
+          description: ''
+  /api/auth/token/refresh/:
+    post:
+      operationId: api_auth_token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/chats/:
+    get:
+      operationId: api_chats_list
+      description: Returns chat sessions owned by the authenticated user.
+      summary: List chat sessions
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatSession'
+          description: ''
+    post:
+      operationId: api_chats_create
+      description: Creates an empty chat session for the authenticated user.
+      summary: Create a chat session
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatSessionCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChatSessionCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChatSessionCreateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSession'
+          description: ''
+  /api/chats/{id}/:
+    get:
+      operationId: api_chats_retrieve
+      description: Returns one chat session owned by the authenticated user.
+      summary: Get chat session
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSession'
+          description: ''
+    delete:
+      operationId: api_chats_destroy
+      description: Deletes one chat session owned by the authenticated user.
+      summary: Delete chat session
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/chats/{id}/ask/:
+    post:
+      operationId: api_chats_ask_create
+      description: Runs the RAG ask pipeline, stores the question and answer, and
+        returns the saved message.
+      summary: Ask inside a chat session
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatAskRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChatAskRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChatAskRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatAskResponse'
+          description: ''
+  /api/chats/{id}/messages/:
+    get:
+      operationId: api_chats_messages_list
+      description: Returns messages for one chat session owned by the authenticated
+        user.
+      summary: List chat messages
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatMessage'
+          description: ''
+  /api/documents/:
+    get:
+      operationId: api_documents_list
+      description: Returns only the authenticated user's uploaded documents.
+      summary: List current user's documents
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Document'
+          description: ''
+  /api/documents/{document_id}/chunks/:
+    get:
+      operationId: api_documents_chunks_list
+      description: Returns text chunks generated from a processed document owned by
+        the authenticated user.
+      summary: List document chunks
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentChunk'
+          description: ''
+  /api/documents/{id}/:
+    get:
+      operationId: api_documents_retrieve
+      description: Returns a single document owned by the authenticated user.
+      summary: Get document details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+    delete:
+      operationId: api_documents_destroy
+      description: Deletes a document owned by the authenticated user.
+      summary: Delete a document
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/documents/upload/:
+    post:
+      operationId: api_documents_upload_create
+      description: Uploads a PDF, DOCX, or TXT file for the authenticated user and
+        queues background processing.
+      summary: Upload a document
+      tags:
+      - api
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocumentUploadRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DocumentUploadRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+  /api/search/:
+    post:
+      operationId: api_search_create
+      description: Searches the authenticated user's document chunks with the local
+        MVP embedding provider.
+      summary: Search document chunks
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SearchRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SearchRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+          description: ''
+components:
+  schemas:
+    AnswerCitation:
+      type: object
+      properties:
+        document_id:
+          type: integer
+        document_title:
+          type: string
+        chunk_id:
+          type: integer
+        chunk_index:
+          type: integer
+        score:
+          type: number
+          format: double
+        text:
+          type: string
+      required:
+      - chunk_id
+      - chunk_index
+      - document_id
+      - document_title
+      - score
+      - text
+    AnswerModeEnum:
+      enum:
+      - local
+      - openai
+      type: string
+      description: |-
+        * `local` - local
+        * `openai` - openai
+    AskRequestRequest:
+      type: object
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 500
+        limit:
+          type: integer
+          maximum: 10
+          minimum: 1
+          default: 5
+        document_id:
+          type: integer
+          minimum: 1
+      required:
+      - question
+    AskResponse:
+      type: object
+      properties:
+        question:
+          type: string
+        answer:
+          type: string
+        answer_mode:
+          $ref: '#/components/schemas/AnswerModeEnum'
+        model:
+          type: string
+        document_id:
+          type: integer
+          nullable: true
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerCitation'
+      required:
+      - answer
+      - answer_mode
+      - citations
+      - model
+      - question
+    ChatAskRequestRequest:
+      type: object
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 500
+        limit:
+          type: integer
+          maximum: 10
+          minimum: 1
+          default: 5
+        document_id:
+          type: integer
+          minimum: 1
+          nullable: true
+      required:
+      - question
+    ChatAskResponse:
+      type: object
+      properties:
+        session:
+          $ref: '#/components/schemas/ChatSession'
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+      required:
+      - message
+      - session
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        question:
+          type: string
+        answer:
+          type: string
+        answer_mode:
+          type: string
+          maxLength: 20
+        model:
+          type: string
+          maxLength: 80
+        document_id:
+          type: integer
+          readOnly: true
+          nullable: true
+        document_title:
+          type: string
+          readOnly: true
+          nullable: true
+        citations: {}
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - answer
+      - answer_mode
+      - created_at
+      - document_id
+      - document_title
+      - id
+      - question
+    ChatSession:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 160
+        document_id:
+          type: integer
+          readOnly: true
+          nullable: true
+        document_title:
+          type: string
+          readOnly: true
+          nullable: true
+        message_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - document_id
+      - document_title
+      - id
+      - message_count
+      - updated_at
+    ChatSessionCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 160
+        document_id:
+          type: integer
+          minimum: 1
+          nullable: true
+    Document:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        filename:
+          type: string
+          readOnly: true
+        file:
+          type: string
+          format: uri
+          readOnly: true
+        file_type:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+        error_message:
+          type: string
+          readOnly: true
+        extracted_text_length:
+          type: integer
+          readOnly: true
+        chunk_count:
+          type: integer
+          readOnly: true
+        text_preview:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - chunk_count
+      - created_at
+      - error_message
+      - extracted_text_length
+      - file
+      - file_type
+      - filename
+      - id
+      - status
+      - text_preview
+      - title
+      - updated_at
+    DocumentChunk:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        document:
+          type: integer
+          readOnly: true
+        chunk_index:
+          type: integer
+          readOnly: true
+        text:
+          type: string
+          readOnly: true
+        page_number:
+          type: integer
+          readOnly: true
+          nullable: true
+        token_count:
+          type: integer
+          readOnly: true
+        embedding_model:
+          type: string
+          readOnly: true
+        embedding_dimensions:
+          type: integer
+          readOnly: true
+        embedded_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - chunk_index
+      - created_at
+      - document
+      - embedded_at
+      - embedding_dimensions
+      - embedding_model
+      - id
+      - page_number
+      - text
+      - token_count
+    DocumentUploadRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        file:
+          type: string
+          format: binary
+          writeOnly: true
+      required:
+      - file
+    Register:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+      required:
+      - id
+      - username
+    RegisterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        password_confirm:
+          type: string
+          writeOnly: true
+          minLength: 1
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+      required:
+      - password
+      - password_confirm
+      - username
+    RemziTokenObtainPairRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - password
+      - username
+    SearchRequestRequest:
+      type: object
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 500
+        limit:
+          type: integer
+          maximum: 20
+          minimum: 1
+          default: 5
+        document_id:
+          type: integer
+          minimum: 1
+      required:
+      - query
+    SearchResponse:
+      type: object
+      properties:
+        query:
+          type: string
+        document_id:
+          type: integer
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResult'
+      required:
+      - query
+      - results
+    SearchResult:
+      type: object
+      properties:
+        document_id:
+          type: integer
+        document_title:
+          type: string
+        chunk_id:
+          type: integer
+        chunk_index:
+          type: integer
+        score:
+          type: number
+          format: double
+        text:
+          type: string
+      required:
+      - chunk_id
+      - chunk_index
+      - document_id
+      - document_title
+      - score
+      - text
+    StatusEnum:
+      enum:
+      - uploaded
+      - processing
+      - ready
+      - failed
+      type: string
+      description: |-
+        * `uploaded` - Uploaded
+        * `processing` - Processing
+        * `ready` - Ready
+        * `failed` - Failed
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+      required:
+      - access
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - refresh
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: Email address
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+      required:
+      - email
+      - first_name
+      - id
+      - last_name
+      - username
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
