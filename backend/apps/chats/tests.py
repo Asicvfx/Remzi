@@ -1,4 +1,4 @@
-﻿from unittest.mock import patch
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.answers.llm import GeneratedAnswer
+from apps.chats.models import ChatMessage
 from apps.chunks.models import DocumentChunk
 from apps.documents.models import Document, DocumentStatus
 from apps.search.embeddings import LocalHashingEmbeddingProvider
@@ -96,6 +97,37 @@ class ChatApiTests(APITestCase):
         self.assertEqual(messages_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(messages_response.data), 1)
         self.assertEqual(messages_response.data[0]["question"], "что написано про опыт работы")
+
+    def test_stream_ask_persists_message_and_streams_events(self):
+        document = self.create_document_with_chunk(self.user)
+        session_response = self.client.post(
+            reverse("chats:list_create"),
+            {"document_id": document.id},
+            format="json",
+        )
+
+        response = self.client.post(
+            reverse("chats:ask_stream", kwargs={"pk": session_response.data["id"]}),
+            {"question": "что написано про опыт работы", "limit": 3},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        chunks = []
+        for chunk in response.streaming_content:
+            if isinstance(chunk, bytes):
+                chunk = chunk.decode("utf-8")
+            chunks.append(chunk)
+        body = "".join(chunks)
+
+        self.assertIn("event: metadata", body)
+        self.assertIn("event: answer_delta", body)
+        self.assertIn("event: done", body)
+        self.assertEqual(ChatMessage.objects.count(), 1)
+        message = ChatMessage.objects.first()
+        self.assertEqual(message.session_id, session_response.data["id"])
+        self.assertEqual(message.answer_mode, "local")
+        self.assertIn("По найденным фрагментам", message.answer)
 
     @override_settings(
         OPENAI_ANSWER_ENABLED=True,

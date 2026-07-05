@@ -169,3 +169,99 @@ export function askInChat(
     },
   });
 }
+type StreamHandlers = {
+  onDelta?: (delta: string) => void;
+  onMetadata?: (metadata: unknown) => void;
+};
+
+function parseSseMessage(message: string) {
+  const lines = message.split("\n");
+  const event = lines.find((line) => line.startsWith("event: "))?.slice(7).trim() ?? "message";
+  const data = lines
+    .filter((line) => line.startsWith("data: "))
+    .map((line) => line.slice(6))
+    .join("\n");
+
+  return { event, data: data ? JSON.parse(data) : null };
+}
+
+export async function askInChatStream(
+  token: string,
+  chatId: number,
+  question: string,
+  limit: number,
+  documentId: number | undefined,
+  handlers: StreamHandlers = {},
+) {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/chats/${chatId}/ask/stream/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        question,
+        limit,
+        ...(documentId ? { document_id: documentId } : {}),
+      }),
+    });
+  } catch (err) {
+    throw new ApiError(
+      "Не удалось подключиться к streaming endpoint. Проверь, что backend на localhost:8000 запущен.",
+      0,
+      err,
+    );
+  }
+
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type") ?? "";
+    const payload = contentType.includes("application/json")
+      ? await response.json()
+      : await response.text();
+    throw new ApiError(extractErrorMessage(payload, response.status), response.status, payload);
+  }
+
+  if (!response.body) {
+    throw new ApiError("Браузер не вернул streaming body для ответа.", 0);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalPayload: ChatAskResponse | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const messages = buffer.split("\n\n");
+    buffer = messages.pop() ?? "";
+
+    for (const rawMessage of messages) {
+      if (!rawMessage.trim()) {
+        continue;
+      }
+      const { event, data } = parseSseMessage(rawMessage);
+      if (event === "metadata") {
+        handlers.onMetadata?.(data);
+      } else if (event === "answer_delta") {
+        handlers.onDelta?.(String(data?.delta ?? ""));
+      } else if (event === "done") {
+        finalPayload = data as ChatAskResponse;
+      } else if (event === "error") {
+        throw new ApiError(String(data?.detail ?? "Streaming failed"), 500, data);
+      }
+    }
+  }
+
+  if (!finalPayload) {
+    throw new ApiError("Streaming завершился без финального сообщения.", 500);
+  }
+
+  return finalPayload;
+}

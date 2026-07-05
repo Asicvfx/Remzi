@@ -1,4 +1,7 @@
-﻿from drf_spectacular.utils import extend_schema, extend_schema_view
+import json
+
+from django.http import StreamingHttpResponse
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, status, views
 from rest_framework.response import Response
 
@@ -12,9 +15,15 @@ from apps.chats.serializers import (
 )
 from apps.chats.services import (
     AskInChatService,
+    AskInChatStreamService,
     CreateChatSessionService,
     chat_session_queryset,
 )
+
+
+def _sse_event(event, data):
+    payload = json.dumps(data, ensure_ascii=False)
+    return f"event: {event}\ndata: {payload}\n\n"
 
 
 @extend_schema_view(
@@ -119,3 +128,54 @@ class ChatAskView(views.APIView):
         payload = {"session": session, "message": message}
         response_serializer = ChatAskResponseSerializer(payload)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="Stream ask inside a chat session",
+    description="Runs the RAG ask pipeline and streams answer deltas before returning the saved chat message.",
+    request=ChatAskRequestSerializer,
+    responses={200: ChatAskResponseSerializer},
+)
+class ChatAskStreamView(views.APIView):
+    def post(self, request, pk):
+        session = generics.get_object_or_404(
+            ChatSession.objects.filter(user=request.user),
+            pk=pk,
+        )
+        serializer = ChatAskRequestSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        def event_stream():
+            try:
+                for event, payload in AskInChatStreamService.execute(
+                    user=request.user,
+                    session=session,
+                    question=serializer.validated_data["question"],
+                    limit=serializer.validated_data["limit"],
+                    document_id=serializer.validated_data.get("document_id"),
+                ):
+                    if event == "done":
+                        streamed_session = chat_session_queryset(request.user).get(
+                            id=payload["session"].id
+                        )
+                        response_serializer = ChatAskResponseSerializer(
+                            {
+                                "session": streamed_session,
+                                "message": payload["message"],
+                            }
+                        )
+                        yield _sse_event("done", response_serializer.data)
+                    else:
+                        yield _sse_event(event, payload)
+            except Exception as exc:
+                yield _sse_event("error", {"detail": str(exc)})
+
+        response = StreamingHttpResponse(
+            event_stream(),
+            content_type="text/event-stream",
+        )
+        response["Cache-Control"] = "no-cache"
+        return response

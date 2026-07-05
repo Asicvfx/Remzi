@@ -1,4 +1,4 @@
-﻿import re
+import re
 
 from apps.answers.llm import OpenAIAnswerClient
 from apps.common.text import repair_mojibake
@@ -88,6 +88,16 @@ class LocalExtractiveAnswerComposer:
 class AskQuestionService:
     @staticmethod
     def execute(user, question, limit=5, document_id=None):
+        context = AskQuestionService.build_context(
+            user=user,
+            question=question,
+            limit=limit,
+            document_id=document_id,
+        )
+        return AskQuestionService.generate_from_context(context)
+
+    @staticmethod
+    def build_context(user, question, limit=5, document_id=None):
         repaired_question = repair_mojibake(question)
         search_results = SearchChunksService.execute(
             user=user,
@@ -96,9 +106,18 @@ class AskQuestionService:
             document_id=document_id,
         )
         citations = AskQuestionService._trim_citations(search_results)
+        return {
+            "question": repaired_question,
+            "search_results": search_results,
+            "document_id": document_id,
+            "citations": citations,
+        }
+
+    @staticmethod
+    def generate_from_context(context):
         generated_answer = OpenAIAnswerClient().generate_answer(
-            question=repaired_question,
-            citations=citations,
+            question=context["question"],
+            citations=context["citations"],
         )
 
         if generated_answer:
@@ -107,19 +126,19 @@ class AskQuestionService:
             model = generated_answer.model
         else:
             answer = LocalExtractiveAnswerComposer.compose(
-                question=repaired_question,
-                search_results=search_results,
+                question=context["question"],
+                search_results=context["search_results"],
             )
             answer_mode = "local"
             model = ""
 
         return {
-            "question": repaired_question,
+            "question": context["question"],
             "answer": answer,
             "answer_mode": answer_mode,
             "model": model,
-            "document_id": document_id,
-            "citations": citations,
+            "document_id": context["document_id"],
+            "citations": context["citations"],
         }
 
     @staticmethod

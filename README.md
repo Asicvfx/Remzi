@@ -1,6 +1,6 @@
 ﻿# Remzi
 
-Remzi is a portfolio-level RAG application. Stages 0-14 include the monorepo foundation, Docker environment, Django REST backend, JWT authentication, document upload APIs, Celery-based background processing, text extraction, document chunking, local embeddings, authenticated chunk search, OpenAI-powered answers with citations, a beginner-friendly frontend chat workspace, persisted chat history, automatic document processing polling, a frontend typing effect for new answers, a cleaner product-style workspace UI, and clearer frontend error handling.
+Remzi is a portfolio-level RAG application. Stages 0-15 include the monorepo foundation, Docker environment, Django REST backend, JWT authentication, document upload APIs, Celery-based background processing, text extraction, document chunking, local embeddings, authenticated chunk search, OpenAI-powered answers with citations, a beginner-friendly frontend chat workspace, persisted chat history, automatic document processing polling, a frontend typing effect for new answers, a cleaner product-style workspace UI, clearer frontend error handling, and chat answer streaming.
 
 ## Current structure
 
@@ -13,7 +13,7 @@ Remzi/
   README.md
 ```
 
-## Stage 0-14 features
+## Stage 0-15 features
 
 - Monorepo layout for backend and frontend.
 - Docker Compose with PostgreSQL, Redis, Django backend, and Celery worker.
@@ -34,6 +34,7 @@ Remzi/
 - Frontend shows newly generated answers with a typing effect while keeping saved history instant.
 - Frontend has a cleaner Stage 13 product workspace layout for demo use.
 - Frontend explains API/network/auth errors and blocks asks against failed or processing documents.
+- Chat ask streaming endpoint emits answer deltas and saves the final message.
 - Frontend workspace for login, document upload, document selection, chat history, questions, answers, and citations.
 - Swagger UI at `/api/docs/`.
 - Basic auth, document pipeline, chunking, search, and answer tests.
@@ -62,6 +63,7 @@ Search, answers, and chats:
 - `DELETE /api/chats/{id}/`
 - `GET /api/chats/{id}/messages/`
 - `POST /api/chats/{id}/ask/`
+- `POST /api/chats/{id}/ask/stream/`
 
 Docs:
 - `GET /api/schema/`
@@ -283,16 +285,16 @@ cd D:\RemziFrontendWorkspace
 npm run build
 ```
 
-## Changed files in Stage 14
+## Changed files in Stage 15
 
-- Added typed frontend API errors with HTTP status metadata.
-- Added friendly network, expired-token, validation, not-found, and server-error messages.
-- Added safeguards before asking against failed or still-processing documents.
-- Updated README instructions for Stage 14.
+- Added a streaming chat ask endpoint using Server-Sent Events.
+- Added backend streaming service that saves the final chat message after deltas finish.
+- Added frontend SSE parsing and live temporary answer rendering.
+- Updated README instructions for Stage 15.
 
 ## Next stage
 
-Stage 15 can add true backend/OpenAI streaming or start preparing deployment configuration.
+Stage 16 can start preparing deployment configuration, environment templates, and production runbooks.
 
 
 

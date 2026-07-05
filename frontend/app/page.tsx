@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState, useTransition } from "
 
 import {
   ApiError,
-  askInChat,
+  askInChatStream,
   createChat,
   getChatMessages,
   getChats,
@@ -70,6 +70,8 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const [typingMessageId, setTypingMessageId] = useState<number | null>(null);
   const [typingAnswer, setTypingAnswer] = useState("");
+  const [streamingQuestion, setStreamingQuestion] = useState("");
+  const [streamingAnswer, setStreamingAnswer] = useState("");
   const typingIntervalRef = useRef<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const processingDocuments = useMemo(
@@ -132,6 +134,8 @@ export default function Home() {
     stopTypingEffect();
     setTypingMessageId(null);
     setTypingAnswer("");
+    setStreamingQuestion("");
+    setStreamingAnswer("");
     setToken("");
     setUser(null);
     setDocuments([]);
@@ -331,9 +335,14 @@ export default function Home() {
             setSelectedChatId(chat.id);
           }
 
-          const data = await askInChat(token, chatId, question, limit, selectedDocumentId);
+          setStreamingQuestion(question);
+          setStreamingAnswer("");
+          const data = await askInChatStream(token, chatId, question, limit, selectedDocumentId, {
+            onDelta: (delta) => setStreamingAnswer((current) => current + delta),
+          });
+          setStreamingQuestion("");
+          setStreamingAnswer("");
           setMessages((current) => [...current, data.message]);
-          playTypingEffect(data.message);
           setChats((current) => [data.session, ...current.filter((chat) => chat.id !== data.session.id)]);
           setSelectedChatId(data.session.id);
           setNotice(
@@ -342,6 +351,8 @@ export default function Home() {
               : "Ответ сохранен в историю локальным fallback-режимом.",
           );
         } catch (err) {
+          setStreamingQuestion("");
+          setStreamingAnswer("");
           handleRequestError(err, "Не удалось получить ответ");
         }
       })();
@@ -356,16 +367,16 @@ export default function Home() {
     <main className="shell">
       <section className="hero panel">
         <div>
-          <p className="eyebrow">Remzi Stage 14</p>
-          <h1>Ошибки теперь объясняют, что делать дальше.</h1>
+          <p className="eyebrow">Remzi Stage 15</p>
+          <h1>Ответы теперь идут потоком, без ожидания полной генерации.</h1>
           <p className="heroCopy">
-            Если backend упал, токен истек или документ не дошел до Ready, Remzi покажет понятную подсказку.
-            Меньше загадочных ошибок, больше спокойного контроля над workflow.
+            Remzi открывает streaming endpoint, показывает answer delta по мере генерации и сохраняет финальный ответ в историю.
+            Старый ask pipeline остается рядом как надежная основа.
           </p>
         </div>
         <div className="heroBadge">
-          <span>{typingMessageId ? "Typing" : lastMessage?.answer_mode === "openai" ? "OpenAI" : "Memory"}</span>
-          <strong>{typingMessageId ? "live answer" : hasProcessingDocuments ? `${processingDocuments.length} processing` : lastMessage?.model || `${messages.length} saved`}</strong>
+          <span>{streamingQuestion ? "Streaming" : typingMessageId ? "Typing" : lastMessage?.answer_mode === "openai" ? "OpenAI" : "Memory"}</span>
+          <strong>{streamingQuestion ? "live answer" : typingMessageId ? "live answer" : hasProcessingDocuments ? `${processingDocuments.length} processing` : lastMessage?.model || `${messages.length} saved`}</strong>
         </div>
       </section>
 
@@ -546,7 +557,7 @@ export default function Home() {
             <div className={`message ${error ? "error" : ""}`}>{error || notice}</div>
           )}
 
-          {messages.length > 0 ? (
+          {(messages.length > 0 || streamingQuestion) ? (
             <div className="historyList">
               {messages.map((message) => {
                 const isTyping = typingMessageId === message.id;
@@ -577,12 +588,25 @@ export default function Home() {
                 </article>
                 );
               })}
+              {streamingQuestion && (
+                <article className="answerCard typingCard">
+                  <div className="answerMeta">
+                    <span>Streaming answer</span>
+                    <span>live</span>
+                  </div>
+                  <h3>{streamingQuestion}</h3>
+                  <p className="answerText typing">
+                    {streamingAnswer}
+                    <span aria-hidden="true" className="typingCursor" />
+                  </p>
+                </article>
+              )}
             </div>
           ) : (
             <div className="emptyState">
-              <span>14</span>
-              <h3>Рабочее место готово и подскажет, если что-то пойдет не так.</h3>
-              <p>Войди, загрузи документ и дождись Ready. Если токен истечет или файл не обработается, Remzi объяснит следующий шаг.</p>
+              <span>15</span>
+              <h3>Рабочее место готово к streaming-вопросу.</h3>
+              <p>Войди, загрузи документ и дождись Ready. Новый ответ будет появляться здесь прямо во время генерации.</p>
             </div>
           )}
         </section>

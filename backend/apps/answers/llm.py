@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
 
 from django.conf import settings
 
@@ -66,6 +66,34 @@ class OpenAIAnswerClient:
             return None
 
         return GeneratedAnswer(answer=answer, model=self.model)
+
+    def stream_answer_chunks(self, question, citations):
+        if not self.enabled or not self.api_key or not citations:
+            return None
+
+        try:
+            from openai import OpenAI
+        except ImportError:
+            return None
+
+        prompt = self._build_user_prompt(question=question, citations=citations)
+
+        def chunk_iterator():
+            client = OpenAI(api_key=self.api_key, timeout=self.timeout_seconds)
+            with client.responses.stream(
+                model=self.model,
+                input=[
+                    {"role": "developer", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+            ) as stream:
+                for event in stream:
+                    if getattr(event, "type", "") == "response.output_text.delta":
+                        delta = getattr(event, "delta", "")
+                        if delta:
+                            yield delta
+
+        return chunk_iterator()
 
     @staticmethod
     def _build_user_prompt(question, citations):
