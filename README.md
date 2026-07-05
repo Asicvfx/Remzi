@@ -1,6 +1,6 @@
 ﻿# Remzi
 
-Remzi is a portfolio-level RAG application. Stages 0-10 include the monorepo foundation, Docker environment, Django REST backend, JWT authentication, document upload APIs, Celery-based background processing, text extraction, document chunking, local embeddings, authenticated chunk search, OpenAI-powered answers with citations, a beginner-friendly frontend chat workspace, and persisted chat history.
+Remzi is a portfolio-level RAG application. Stages 0-11 include the monorepo foundation, Docker environment, Django REST backend, JWT authentication, document upload APIs, Celery-based background processing, text extraction, document chunking, local embeddings, authenticated chunk search, OpenAI-powered answers with citations, a beginner-friendly frontend chat workspace, persisted chat history, and automatic document processing polling.
 
 ## Current structure
 
@@ -13,7 +13,7 @@ Remzi/
   README.md
 ```
 
-## Stage 0-10 features
+## Stage 0-11 features
 
 - Monorepo layout for backend and frontend.
 - Docker Compose with PostgreSQL, Redis, Django backend, and Celery worker.
@@ -30,6 +30,7 @@ Remzi/
 - Answer endpoint with citations.
 - Optional OpenAI answer generation for `/api/ask/` with local fallback.
 - Persisted chat sessions and saved question/answer history.
+- Frontend auto-refreshes document statuses while files are uploaded or processing.
 - Frontend workspace for login, document upload, document selection, chat history, questions, answers, and citations.
 - Swagger UI at `/api/docs/`.
 - Basic auth, document pipeline, chunking, search, and answer tests.
@@ -106,12 +107,13 @@ npm run dev
 - Backend API: `http://localhost:8000/`
 - Swagger: `http://localhost:8000/api/docs/`
 - Schema: `http://localhost:8000/api/schema/`
+
 ## How to use the frontend
 
 1. Open `http://localhost:3000/`.
 2. Login with your Remzi username and password.
 3. Upload a `.pdf`, `.docx`, or `.txt` file.
-4. Press `Refresh` until the document status becomes `Ready`.
+4. Wait while Remzi auto-refreshes the document status until it becomes `Ready`.
 5. Select a document or choose all documents.
 6. Ask a question and read the answer with citations.
 7. Reopen the chat later; saved questions and answers remain in history.
@@ -148,14 +150,7 @@ celery -A config worker -l info
 
 ## Run frontend without Docker
 
-From the `frontend/` directory:
-
-```bash
-npm install
-npm run dev
-```
-
-If the local `frontend` folder is a junction to `D:\RemziFrontendWorkspace`, start dev from the real D path to avoid Windows junction path issues:
+The local `frontend` folder is a junction to `D:\RemziFrontendWorkspace`, so start dev from the real D path to avoid Windows junction path issues:
 
 ```powershell
 cd D:\RemziFrontendWorkspace
@@ -280,22 +275,24 @@ python backend/manage.py test apps.common apps.users apps.documents apps.chunks 
 
 Run frontend build checks with:
 
-```bash
-cd frontend
+```powershell
+cd D:\RemziFrontendWorkspace
 npm run build
 ```
 
-## Changed files in Stage 10
+## Changed files in Stage 11
 
-- Added `chats` Django app.
-- Added `ChatSession` and `ChatMessage` models.
-- Added chat session, message list, and ask-in-chat API endpoints.
-- Saved question, answer, answer mode, model, document, and citations per message.
-- Updated frontend API/types/page to use saved chat history.
-- Updated tests and OpenAPI schema.
+- Added frontend polling for `uploaded` and `processing` documents.
+- Added visible auto-refresh status in the Documents panel.
+- Updated upload notice so users know Refresh is no longer required.
+- Updated README instructions for Stage 11.
+
 ## Next stage
 
-Stage 11 can add better document processing polling, streaming answers, and a cleaner production UI.
+Stage 12 can add streaming answers and a cleaner production UI.
+
+
+
 
 
 

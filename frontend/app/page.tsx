@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { FormEvent, useEffect, useState, useTransition } from "react";
+import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 
 import {
   askInChat,
@@ -44,6 +44,11 @@ export default function Home() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [isPending, startTransition] = useTransition();
+  const processingDocuments = useMemo(
+    () => documents.filter((document) => document.status === "uploaded" || document.status === "processing"),
+    [documents],
+  );
+  const hasProcessingDocuments = processingDocuments.length > 0;
 
   useEffect(() => {
     const savedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
@@ -73,9 +78,22 @@ export default function Home() {
 
     void refreshMessages(token, selectedChatId);
   }, [token, selectedChatId]);
+  useEffect(() => {
+    if (!token || !hasProcessingDocuments) {
+      return;
+    }
 
-  async function refreshWorkspace(activeToken = token) {
-    setError("");
+    const intervalId = window.setInterval(() => {
+      void refreshWorkspace(token, { silent: true });
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
+  }, [token, hasProcessingDocuments]);
+
+  async function refreshWorkspace(activeToken = token, options: { silent?: boolean } = {}) {
+    if (!options.silent) {
+      setError("");
+    }
     try {
       const [documentData, chatData] = await Promise.all([
         getDocuments(activeToken),
@@ -92,7 +110,9 @@ export default function Home() {
         setSelectedChatId(chatData[0].id);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось загрузить workspace");
+      if (!options.silent) {
+        setError(err instanceof Error ? err.message : "Не удалось загрузить workspace");
+      }
     }
   }
 
@@ -180,7 +200,7 @@ export default function Home() {
           setUploadTitle("");
           setUploadFile(null);
           setSelectedDocumentId(uploaded.id);
-          setNotice("Документ загружен. Нажмите Refresh через пару секунд, пока статус не станет Ready.");
+          setNotice("Документ загружен. Я сам обновляю статус каждые 3 секунды, пока он не станет Ready.");
           await refreshWorkspace();
         } catch (err) {
           setError(err instanceof Error ? err.message : "Не удалось загрузить документ");
@@ -234,16 +254,16 @@ export default function Home() {
     <main className="shell">
       <section className="hero panel">
         <div>
-          <p className="eyebrow">Remzi Stage 10</p>
-          <h1>Чат теперь помнит вопросы, ответы и цитаты.</h1>
+          <p className="eyebrow">Remzi Stage 11</p>
+          <h1>Документы сами доходят до Ready, без ручного Refresh.</h1>
           <p className="heroCopy">
-            Загрузи файл, дождись статуса Ready и задай вопрос. Remzi сохранит историю
-            чата, найденные citations и режим ответа.
+            Загрузи файл и не дергай Refresh вручную. Remzi будет проверять processing-статусы,
+            сохранит историю чата, найденные citations и режим ответа.
           </p>
         </div>
         <div className="heroBadge">
           <span>{lastMessage?.answer_mode === "openai" ? "OpenAI" : "Memory"}</span>
-          <strong>{lastMessage?.model || `${messages.length} saved`}</strong>
+          <strong>{hasProcessingDocuments ? `${processingDocuments.length} processing` : lastMessage?.model || `${messages.length} saved`}</strong>
         </div>
       </section>
 
@@ -332,9 +352,12 @@ export default function Home() {
                 <div>
                   <p className="eyebrow">Documents</p>
                   <h2>{documents.length} файлов</h2>
+                  <span className={`pollingPill ${hasProcessingDocuments ? "active" : ""}`}>
+                    {hasProcessingDocuments ? "Auto refresh on" : "Auto refresh idle"}
+                  </span>
                 </div>
                 <button className="ghost" onClick={() => void refreshWorkspace()} type="button">
-                  Refresh
+                  Refresh now
                 </button>
               </div>
 
@@ -444,3 +467,4 @@ export default function Home() {
     </main>
   );
 }
+
